@@ -13,7 +13,7 @@ authority = 'https://login.microsoftonline.com/' + tenantID
 clientID = 'b80e63c4-5843-44da-badc-83a20c33dff1'
 clientSecret = 'ZoV8Q~fBGqAfI9QY2ALHmMLf7zOfOM7D3lTYZa4t'
 scope = ["Sites.Read.All", "Sites.ReadWrite.All", "Sites.Manage.All"]
-username = 'vito_vincentdo@bca.co.id'
+# username = 'U545820@bca.co.id'
 result = None
 tokenExpiry = None
 
@@ -30,7 +30,7 @@ def msal_cache_accounts(clientID, authority):
     persistence = msal_persistence("token_cache.bin")
     print("Is this MSAL persistence cache encrypted?", persistence.is_encrypted)
     cache = PersistedTokenCache(persistence)
-    
+
     app = msal.PublicClientApplication(
         client_id=clientID, authority=authority, token_cache=cache)
     accounts = app.get_accounts()
@@ -39,7 +39,7 @@ def msal_cache_accounts(clientID, authority):
 def msal_delegated_refresh(clientID, scope, authority, account):
     persistence = msal_persistence("token_cache.bin")
     cache = PersistedTokenCache(persistence)
-    
+
     app = msal.PublicClientApplication(
         client_id=clientID, authority=authority, token_cache=cache)
     result = app.acquire_token_silent_with_error(
@@ -49,7 +49,7 @@ def msal_delegated_refresh(clientID, scope, authority, account):
 def msal_delegated_refresh_force(clientID, scope, authority, account):
     persistence = msal_persistence("token_cache.bin")
     cache = PersistedTokenCache(persistence)
-    
+
     app = msal.PublicClientApplication(
         client_id=clientID, authority=authority, token_cache=cache)
     result = app.acquire_token_silent_with_error(
@@ -57,12 +57,13 @@ def msal_delegated_refresh_force(clientID, scope, authority, account):
     return result
 
 def msal_delegated_device_flow(clientID, scope, authority):
+    results = []
     print("Initiate Device Code Flow to get an AAD Access Token.")
     print("Open a browser window and paste in the URL below and then enter the Code. CTRL+C to cancel.")
-    
+
     persistence = msal_persistence("token_cache.bin")
     cache = PersistedTokenCache(persistence)
-    
+
     app = msal.PublicClientApplication(client_id=clientID, authority=authority, token_cache=cache)
     flow = app.initiate_device_flow(scopes=scope)
 
@@ -72,8 +73,10 @@ def msal_delegated_device_flow(clientID, scope, authority):
     print(flow["message"])
     sys.stdout.flush()
 
-    result = app.acquire_token_by_device_flow(flow)
-    return result
+    results.append(app.acquire_token_by_device_flow(flow))
+    results.append(app.get_accounts()[0])
+
+    return results
 
 def msal_jwt_expiry(accessToken):
     decodedAccessToken = jwt.decode(accessToken, verify=False)
@@ -105,10 +108,12 @@ def msgraph_request_delete(resource, requestHeaders):
     return results
 
 accounts = msal_cache_accounts(clientID, authority)
+# print(accounts)
 
 if accounts:
     for account in accounts:
-        if account['username'] == username:
+        # if account['username'] == username:
+            # print(account)
             myAccount = account
             print("Found account in MSAL Cache: " + account['username'])
             print("Obtaining a new Access Token using the Refresh Token")
@@ -117,19 +122,23 @@ if accounts:
             if result is None:
                 # Get a new Access Token using the Device Code Flow
                 result = msal_delegated_device_flow(clientID, scope, authority)
+                result[0]
             else:
                 if result["access_token"]:
-                    msal_jwt_expiry(result["access_token"])                    
+                    msal_jwt_expiry(result["access_token"])
 else:
     # Get a new Access Token using the Device Code Flow
     result = msal_delegated_device_flow(clientID, scope, authority)
+    print(result)
+    myAccount=result[1]
+    if result[0]["access_token"]:
+        msal_jwt_expiry(result[0]["access_token"])
 
-    if result["access_token"]:
-        msal_jwt_expiry(result["access_token"])
 
+# print(result)
 # Query AAD Users based on voice query using DisplayName
 # print(graphURI + "/v1.0/sites/bcaoffice365.sharepoint.com,3983b9b4-f1ea-4771-91cb-fbbcab357e2a,ff059f1c-9c7c-49d4-ac63-b73d11cd1c1f/lists/db38cd50-ad17-49c6-a06f-99d9ed17ffdf/items?expand=fields")
-requestHeaders = {'Authorization': 'Bearer ' + result["access_token"],'Content-Type': 'application/json', 'Accept': 'application/json'}
+requestHeaders = {'Authorization': 'Bearer ' + result[0]["access_token"],'Content-Type': 'application/json', 'Accept': 'application/json'}
 print('======================================')
 print('Get All Master List License Data')
 print('======================================')
@@ -142,7 +151,7 @@ if result is None:
     result = msal_delegated_device_flow(clientID, scope, authority)
 else:
     if result["access_token"]:
-        msal_jwt_expiry(result["access_token"])   
+        msal_jwt_expiry(result["access_token"])
 
 print(json.dumps(queryResults, indent=2))
 print('======================================\n')
@@ -160,7 +169,7 @@ if result is None:
     result = msal_delegated_device_flow(clientID, scope, authority)
 else:
     if result["access_token"]:
-        msal_jwt_expiry(result["access_token"])   
+        msal_jwt_expiry(result["access_token"])
 
 print(json.dumps(queryResults, indent=2))
 print('===========================================\n')
@@ -196,13 +205,13 @@ if result is None:
     result = msal_delegated_device_flow(clientID, scope, authority)
 else:
     if result["access_token"]:
-        msal_jwt_expiry(result["access_token"])   
+        msal_jwt_expiry(result["access_token"])
 
 print(json.dumps(queryResults, indent=2))
 print('===========================================\n')
 
 print('===========================================')
-print('Create New Item Into Master List License')
+print('Update Item Into Master List License')
 print('===========================================')
 
 newData = {
@@ -222,7 +231,7 @@ if result is None:
     result = msal_delegated_device_flow(clientID, scope, authority)
 else:
     if result["access_token"]:
-        msal_jwt_expiry(result["access_token"])   
+        msal_jwt_expiry(result["access_token"])
 
 print(json.dumps(queryResults, indent=2))
 print('===========================================\n')
@@ -241,7 +250,7 @@ if result is None:
     result = msal_delegated_device_flow(clientID, scope, authority)
 else:
     if result["access_token"]:
-        msal_jwt_expiry(result["access_token"])   
+        msal_jwt_expiry(result["access_token"])
 
 print(queryResults)
 print('===========================================\n')
